@@ -1,18 +1,31 @@
-# PlayGround
+# 🎯 لعبة اصطاد النقطة (Catch The Dot)
 
-<!-- omgithub:readme:start -->
-## 🚀 Build, play, and remix with OMGithub
+لعبة أندرويد بسيطة مبنية بـ **Kotlin + Jetpack Compose**.
+تظهر نقطة بأماكن عشوائية، لازم تصطادها بلمسة قبل ما يخلص الوقت (30 ثانية).
+كل ما تزيد نتيجتك، النقطة تصغر وتصعب أكثر! 🔥
 
-**Created using [OMGithub.com](https://omgithub.com).**
+## 📱 تنزيل الـ APK مباشرة على تلفونك (بدون كمبيوتر)
 
-[![OMGithub](https://img.shields.io/badge/OMGithub-Open%20project-orange?style=for-the-badge)](https://omgithub.com/datkmoon/PlayGround)
-[![GitHub](https://img.shields.io/badge/GitHub-Source-181717?logo=github&style=for-the-badge)](https://github.com/datkmoon/PlayGround)
+1. روح لصفحة **Releases** بالمستودع
+2. نزّل ملف **app-debug.apk**
+3. افتح الملف من التلفون، وإذا سألك "مسموح التثبيت من مصادر غير معروفة؟" اضغط السماح
+4. ثبّت واستمتع! 🎉
 
-- 🎮 [Open the project](https://omgithub.com/datkmoon/PlayGround).
-- ✨ [Remix this project](https://omgithub.com/?remix=datkmoon%2FPlayGround).
-- 💻 [Explore the source](https://github.com/datkmoon/PlayGround).
-- 🛠️ [Check build runs](https://github.com/datkmoon/PlayGround/actions).
-- 🐛 [Report an issue](https://github.com/datkmoon/PlayGround/issues).
-- 👤 [Explore the creator's projects](https://omgithub.com/datkmoon).
-- 🌍 [Create with OMGithub](https://omgithub.com).
-<!-- omgithub:readme:end -->
+## 💻 أو افتح المشروع بـ Android Studio
+
+1. نزّل وثبّت Android Studio من: https://developer.android.com/studio
+2. نزّل المشروع (Code ← Download ZIP) وفك الضغط
+3. افتح Android Studio ← **Open** ← اختر مجلد المشروع ← Trust
+4. انتظر أول Build من 5-10 دقائق ثم اضغط **Run ▶**
+
+## 📂 أهم الملفات
+
+- **app/src/main/java/com/example/catchthedot/MainActivity.kt** ← كود اللعبة كله هنا
+- **app/src/main/AndroidManifest.xml** ← معلومات التطبيق
+- **app/build.gradle.kts** ← إعدادات البناء والمكتبات
+
+## ✏️ عدلات سهلة تجربها
+
+- مدة اللعبة: دوّر على "timeLeft = 30" في MainActivity.kt وغيّر الرقم
+- ألوان النقطة: دوّر على Color(0xFFFF6B6B) و Color(0xFFFFD93D)
+- أصغر حجم للنقطة: دوّر على maxOf(30, 70 - score)
