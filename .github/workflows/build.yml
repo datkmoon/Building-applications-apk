@@ -18,21 +18,29 @@ jobs:
       - name: Check for Android project
         id: check
         run: |
+          ls -la > build-log.txt
+          echo "settings exists:" >> build-log.txt
+          ls -la settings.gradle.kts >> build-log.txt 2>&1 || echo "MISSING settings.gradle.kts" >> build-log.txt
+          ls -la app >> build-log.txt 2>&1 || echo "MISSING app dir" >> build-log.txt
           if [ -f settings.gradle.kts ] && [ -d app ]; then
             echo "has_project=true" >> $GITHUB_OUTPUT
+            echo "has_project=true" >> build-log.txt
           else
             echo "has_project=false" >> $GITHUB_OUTPUT
+            echo "has_project=false" >> build-log.txt
           fi
 
       - name: Build debug APK
         if: steps.check.outputs.has_project == 'true'
         run: |
-          echo "== VERSIONS ==" | tee build-log.txt
-          java -version 2>&1 | tee -a build-log.txt
-          gradle --version 2>&1 | tee -a build-log.txt
-          echo "ANDROID_HOME=$ANDROID_HOME" | tee -a build-log.txt
-          echo "== BUILD START ==" | tee -a build-log.txt
-          gradle assembleDebug --no-daemon 2>&1 | tee -a build-log.txt
+          echo "== VERSIONS ==" >> build-log.txt
+          java -version 2>&1 >> build-log.txt
+          gradle --version 2>&1 >> build-log.txt
+          echo "ANDROID_HOME=$ANDROID_HOME" >> build-log.txt
+          echo "== BUILD START ==" >> build-log.txt
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee -a build-log.txt
+          echo "== BUILD DONE ==" >> build-log.txt
+          ls -la app/build/outputs/apk/debug/ >> build-log.txt 2>&1 || echo "NO APK OUTPUT DIR" >> build-log.txt
 
       - name: Upload APK to Release
         if: steps.check.outputs.has_project == 'true' && success()
@@ -43,14 +51,14 @@ jobs:
           files: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Prepare failure logs
-        if: steps.check.outputs.has_project == 'true' && failure()
+        if: failure()
         run: |
           { echo "== ENV =="; env; echo "== FILES =="; ls -la; } >> build-log.txt 2>/dev/null || true
 
-      - name: Upload logs on failure
-        if: steps.check.outputs.has_project == 'true' && failure()
+      - name: Always upload build log
+        if: always()
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-failed
-          name: "فشل البناء — سجل الأخطاء"
+          tag_name: build-log
+          name: "سجل البناء"
           files: build-log.txt
