@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "AIFLIX"
-include ":app"
+include(":app")

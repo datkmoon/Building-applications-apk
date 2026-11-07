@@ -19,15 +19,10 @@ jobs:
         id: check
         run: |
           ls -la > build-log.txt
-          echo "settings exists:" >> build-log.txt
-          ls -la settings.gradle.kts >> build-log.txt 2>&1 || echo "MISSING settings.gradle.kts" >> build-log.txt
-          ls -la app >> build-log.txt 2>&1 || echo "MISSING app dir" >> build-log.txt
           if [ -f settings.gradle.kts ] && [ -d app ]; then
             echo "has_project=true" >> $GITHUB_OUTPUT
-            echo "has_project=true" >> build-log.txt
           else
             echo "has_project=false" >> $GITHUB_OUTPUT
-            echo "has_project=false" >> build-log.txt
           fi
 
       - name: Build debug APK
@@ -35,10 +30,12 @@ jobs:
         run: |
           echo "== VERSIONS ==" >> build-log.txt
           java -version 2>&1 >> build-log.txt
-          gradle --version 2>&1 >> build-log.txt
-          echo "ANDROID_HOME=$ANDROID_HOME" >> build-log.txt
+          echo "== INSTALL GRADLE 8.9 ==" >> build-log.txt
+          curl -sL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          /tmp/gradle-8.9/bin/gradle --version 2>&1 >> build-log.txt
           echo "== BUILD START ==" >> build-log.txt
-          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee -a build-log.txt
+          /tmp/gradle-8.9/bin/gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee -a build-log.txt
           echo "== BUILD DONE ==" >> build-log.txt
           ls -la app/build/outputs/apk/debug/ >> build-log.txt 2>&1 || echo "NO APK OUTPUT DIR" >> build-log.txt
 
