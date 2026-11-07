@@ -15,7 +15,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build debug APK (سجل كامل)
+      - name: Check for Android project
+        id: check
+        run: |
+          if [ -f settings.gradle.kts ] && [ -d app ]; then
+            echo "has_project=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_project=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build debug APK
+        if: steps.check.outputs.has_project == 'true'
         run: |
           echo "== VERSIONS ==" | tee build-log.txt
           java -version 2>&1 | tee -a build-log.txt
@@ -25,20 +35,20 @@ jobs:
           gradle assembleDebug --no-daemon 2>&1 | tee -a build-log.txt
 
       - name: Upload APK to Release
-        if: success()
+        if: steps.check.outputs.has_project == 'true' && success()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0
-          name: "لعبة اصطاد النقطة v1.0"
+          name: "APK جاهز للتنزيل"
           files: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Prepare failure logs
-        if: failure()
+        if: steps.check.outputs.has_project == 'true' && failure()
         run: |
           { echo "== ENV =="; env; echo "== FILES =="; ls -la; } >> build-log.txt 2>/dev/null || true
 
       - name: Upload logs on failure
-        if: failure()
+        if: steps.check.outputs.has_project == 'true' && failure()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-failed
