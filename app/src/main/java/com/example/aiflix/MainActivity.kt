@@ -134,7 +134,12 @@ fun sha256Hex(input: String): String {
 }
 
 fun jsonEscape(s: String): String {
-    return s.replace("\\", "\\\\").replace("\"", "\\"")
+    val sb = StringBuilder()
+    for (c in s) {
+        if (c == '\\' || c == '"') sb.append('\\')
+        sb.append(c)
+    }
+    return sb.toString()
 }
 
 // ===================== تسجيل الدخول (نفس منطق موقع AIFLIX) =====================
