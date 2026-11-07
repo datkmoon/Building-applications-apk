@@ -15,22 +15,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
-
-      - name: Build debug APK (مع حفظ السجل)
-        run: gradle assembleDebug --no-daemon 2>&1 | tee build-log.txt
+      - name: Build debug APK (سجل كامل)
+        run: |
+          echo "== VERSIONS ==" | tee build-log.txt
+          java -version 2>&1 | tee -a build-log.txt
+          gradle --version 2>&1 | tee -a build-log.txt
+          echo "ANDROID_HOME=$ANDROID_HOME" | tee -a build-log.txt
+          echo "== BUILD START ==" | tee -a build-log.txt
+          gradle assembleDebug --no-daemon 2>&1 | tee -a build-log.txt
 
       - name: Upload APK to Release
         if: success()
@@ -40,7 +32,12 @@ jobs:
           name: "لعبة اصطاد النقطة v1.0"
           files: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload build log on failure
+      - name: Prepare failure logs
+        if: failure()
+        run: |
+          { echo "== ENV =="; env; echo "== FILES =="; ls -la; } >> build-log.txt 2>/dev/null || true
+
+      - name: Upload logs on failure
         if: failure()
         uses: softprops/action-gh-release@v2
         with:
