@@ -32,8 +32,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,7 +43,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -134,7 +134,7 @@ fun sha256Hex(input: String): String {
 }
 
 fun jsonEscape(s: String): String {
-    return s.replace("\\", "\\\\").replace("\"", "\\\"")
+    return s.replace("\\", "\\\\").replace("\"", "\\"")
 }
 
 // ===================== تسجيل الدخول (نفس منطق موقع AIFLIX) =====================
@@ -249,7 +249,7 @@ fun tmdbSearchSync(query: String): List<MovieData> {
             val ext = httpGet("https://api.themoviedb.org/3/" + media + "/" + tmdbId + "/external_ids?api_key=" + TMDB_KEY)
             if (ext != null) imdb = JSONObject(ext).optString("imdb_id")
         } catch (e: Exception) { }
-        val stream: String
+        var stream: String
         if (imdb.startsWith("tt")) {
             stream = "https://embed.smashystream.com/playere.php?imdb=" + imdb
             if (isTv) stream = stream + "&season=1&episode=1"
@@ -292,7 +292,7 @@ fun loadBitmapSync(url: String): Bitmap? {
     } catch (e: Exception) { null }
 }
 
-// ===================== الواجهات =====================
+// ===================== التنقل =====================
 sealed class Screen {
     object Login : Screen()
     object Home : Screen()
@@ -302,7 +302,7 @@ sealed class Screen {
 
 @Composable
 fun WebImage(url: String, modifier: Modifier) {
-    var bmp by remember(url) { mutableStateOf<ImageCache.map[url]) }
+    var bmp by remember(url) { mutableStateOf(ImageCache.map[url]) }
     LaunchedEffect(url) {
         if (bmp == null) {
             bmp = withContext(Dispatchers.IO) { loadBitmapSync(url) }
@@ -350,6 +350,7 @@ fun AiflixApp() {
                 name = prefs.getString("user_name", "")!!,
                 role = prefs.getString("user_role", "member")!!
             )
+            stack.add(Screen.Home)
         }
         checked = true
     }
@@ -358,8 +359,6 @@ fun AiflixApp() {
         Box(Modifier.fillMaxSize().background(BG))
         return
     }
-
-    val current: Screen = if (stack.isEmpty()) Screen.Login else stack.last()
 
     if (user == null) {
         LoginScreen(onSuccess = { u ->
@@ -375,6 +374,8 @@ fun AiflixApp() {
         })
         return
     }
+
+    val current: Screen = if (stack.isEmpty()) Screen.Home else stack.last()
 
     BackHandler(enabled = stack.size > 1) { stack.removeAt(stack.size - 1) }
 
@@ -435,13 +436,12 @@ fun LoginScreen(onSuccess: (UserProfile) -> Unit) {
                         error = null
                         Thread {
                             val (u, err) = loginAttempt(email, password)
-                            Thread.sleep(0)
-                            loading = false
                             if (u != null) {
                                 onSuccess(u)
                             } else {
                                 error = err
                             }
+                            loading = false
                         }.start()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = GOLD, contentColor = Color(0xFF1A1608)),
@@ -468,45 +468,41 @@ fun HomeScreen(user: UserProfile, onLogout: () -> Unit, onOpen: (MovieData) -> U
     var searching by remember { mutableStateOf(false) }
     val catalog = remember { catalogMovies() }
 
-    fun doSearch() {
-        if (query.trim().isEmpty()) { results = null; return }
-        searching = true
-        Thread {
-            val found = tmdbSearchSync(query)
+    LaunchedEffect(query) {
+        if (query.trim().isEmpty()) {
+            results = null
+            searching = false
+        } else {
+            searching = true
+            val q = query
+            delay(600)
+            val found = withContext(Dispatchers.IO) { tmdbSearchSync(q) }
             results = found
             searching = false
-        }.start()
+        }
     }
 
     Column(Modifier.fillMaxSize().background(BG)) {
-        // الهيدر
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
                 Text("AIFLIX", color = GOLD, fontSize = 26.sp, fontWeight = FontWeight.Black)
-                Text(
-                    "مرحباً " + user.name,
-                    color = SUB, fontSize = 13.sp
-                )
+                Text("مرحباً " + user.name, color = SUB, fontSize = 13.sp)
             }
             IconButton(onClick = onLogout) {
-                Icon(Icons.Filled.Logout, contentDescription = "خروج", tint = SUB)
+                Icon(Icons.Filled.ExitToApp, contentDescription = "خروج", tint = SUB)
             }
         }
-        // البحث
         OutlinedTextField(
             value = query,
-            onValueChange = {
-                query = it
-                if (it.isEmpty()) results = null
-            },
+            onValueChange = { query = it },
             placeholder = { Text("ابحث عن فيلم أو مسلسل...") },
             singleLine = true,
             trailingIcon = {
                 if (query.isNotEmpty()) {
-                    IconButton(onClick = { query = ""; results = null }) {
+                    IconButton(onClick = { query = "" }) {
                         Icon(Icons.Filled.Close, contentDescription = "مسح", tint = SUB)
                     }
                 } else {
@@ -518,10 +514,11 @@ fun HomeScreen(user: UserProfile, onLogout: () -> Unit, onOpen: (MovieData) -> U
         if (searching) {
             CircularProgressIndicator(
                 color = GOLD,
-                modifier = Modifier.padding(18.dp).align(Alignment.Start)
+                modifier = Modifier.padding(18.dp)
             )
         }
         val list = results ?: catalog
+        val showEmpty = results != null && results!!.isEmpty() && !searching
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             modifier = Modifier.fillMaxSize().padding(8.dp)
@@ -529,13 +526,23 @@ fun HomeScreen(user: UserProfile, onLogout: () -> Unit, onOpen: (MovieData) -> U
             if (results == null) {
                 item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
                     Text(
-                        if (query.isEmpty()) "الأكثر رواجاً" else "",
+                        "الأكثر رواجاً",
                         color = TXT, fontSize = 17.sp, fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(start = 10.dp, top = 14.dp, bottom = 6.dp)
                     )
                 }
             }
-            items(list, key = { m -> m.imdbId + m.titleAr + m.year }) { m ->
+            if (showEmpty) {
+                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
+                    Text(
+                        "ماكو نتائج للبحث... جرب اسم ثاني",
+                        color = SUB, fontSize = 14.sp,
+                        modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            items(list) { m ->
                 MovieCard(m, onOpen)
             }
         }
@@ -558,7 +565,6 @@ fun MovieCard(m: MovieData, onOpen: (MovieData) -> Unit) {
                 .clip(RoundedCornerShape(10.dp))
         ) {
             WebImage(m.poster, Modifier.fillMaxSize())
-            // شريط التقييم
             Text(
                 m.rating,
                 color = Color.Black,
@@ -571,7 +577,6 @@ fun MovieCard(m: MovieData, onOpen: (MovieData) -> Unit) {
                     .background(GOLD)
                     .padding(horizontal = 5.dp, vertical = 2.dp)
             )
-            // شريط النوع
             Text(
                 if (m.isSeries) "مسلسل" else "فيلم",
                 color = Color.White,
@@ -611,11 +616,6 @@ fun DetailsScreen(m: MovieData, onPlay: (MovieData) -> Unit) {
                     .height(120.dp)
                     .align(Alignment.BottomCenter)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, BG)))
-            )
-            Text(
-                "← رجوع",
-                color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(14.dp)
             )
         }
         Row(Modifier.padding(horizontal = 16.dp)) {
@@ -679,11 +679,9 @@ fun PlayerScreen(m: MovieData) {
         Text(
             "← " + m.titleAr,
             color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .clickable { }
-                .padding(14.dp)
+            modifier = Modifier.padding(14.dp)
         )
-        Box(Modifier.fillMaxSize().background(Color(0xFF000000))) {
+        Box(Modifier.fillMaxSize()) {
             AndroidView(
                 factory = { ctx ->
                     WebView(ctx).apply {

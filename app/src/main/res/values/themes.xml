@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Aiflix" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#12101F</item>
+        <item name="android:statusBarColor">#12101F</item>
+        <item name="android:navigationBarColor">#12101F</item>
+    </style>
+</resources>
