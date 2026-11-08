@@ -55,7 +55,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -360,7 +359,7 @@ fun WebImage(url: String, modifier: Modifier = Modifier, contentScale: ContentSc
 
 // ==================== أشكال الحقول والأزرار ====================
 @Composable
-fun darkFieldColors(): androidx.compose.material3.OutlinedTextFieldColors = OutlinedTextFieldDefaults.colors(
+fun darkFieldColors(): androidx.compose.material3.TextFieldColors = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = GOLD,
     unfocusedBorderColor = Color(0xFF3A3358),
     focusedLabelColor = GOLD,
@@ -558,6 +557,8 @@ fun LoginScreen(onSuccess: (UserData) -> Unit, onSignup: () -> Unit) {
         TextButton(onClick = onSignup) {
             Text("ما عندك حساب؟ إنشاء حساب جديد", color = GOLD, fontSize = 14.sp)
         }
+        Spacer(Modifier.height(10.dp))
+        Text("الإصدار 2.0.1", color = SUB, fontSize = 11.sp)
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -1029,7 +1030,7 @@ fun PlayerScreen(movie: MovieData, onBack: () -> Unit) {
         ) {
             Text("ما كو رابط بث متوفر لهذا العنوان حالياً", color = SUB, fontSize = 15.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(16.dp))
-            OutlinedButton(onClick = onBack, colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = GOLD)) {
+            OutlinedButton(onClick = onBack, colors = ButtonDefaults.outlinedButtonColors(contentColor = GOLD)) {
                 Text("رجوع")
             }
         }
@@ -1071,13 +1072,13 @@ fun PlayerScreen(movie: MovieData, onBack: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = { pickDialog = "season" },
-                            colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = GOLD)
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GOLD)
                         ) {
                             Text("الموسم " + season, fontSize = 13.sp)
                         }
                         OutlinedButton(
                             onClick = { pickDialog = "episode" },
-                            colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = GOLD)
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GOLD)
                         ) {
                             Text("الحلقة " + episode, fontSize = 13.sp)
                         }
@@ -1100,7 +1101,7 @@ fun PlayerScreen(movie: MovieData, onBack: () -> Unit) {
                             webView.reload()
                         },
                         modifier = Modifier.weight(1f).height(44.dp),
-                        colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = GOLD)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = GOLD)
                     ) {
                         Text("تحديث 🔄", fontSize = 13.sp)
                     }
