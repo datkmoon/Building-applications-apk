@@ -1,15 +1,15 @@
 total 40
-drwxr-xr-x 6 runner runner 4096 Nov  7 16:57 .
-drwxr-xr-x 3 runner runner 4096 Nov  7 16:57 ..
-drwxr-xr-x 7 runner runner 4096 Nov  7 16:57 .git
-drwxr-xr-x 3 runner runner 4096 Nov  7 16:57 .github
--rw-r--r-- 1 runner runner  187 Nov  7 16:57 README.md
-drwxr-xr-x 3 runner runner 4096 Nov  7 16:57 app
--rw-r--r-- 1 runner runner    0 Nov  7 16:57 build-log.txt
--rw-r--r-- 1 runner runner  217 Nov  7 16:57 build.gradle.kts
-drwxr-xr-x 3 runner runner 4096 Nov  7 16:57 gradle
--rw-r--r-- 1 runner runner  133 Nov  7 16:57 gradle.properties
--rw-r--r-- 1 runner runner  321 Nov  7 16:57 settings.gradle.kts
+drwxr-xr-x 6 runner runner 4096 Nov  8 04:54 .
+drwxr-xr-x 3 runner runner 4096 Nov  8 04:54 ..
+drwxr-xr-x 7 runner runner 4096 Nov  8 04:54 .git
+drwxr-xr-x 3 runner runner 4096 Nov  8 04:54 .github
+-rw-r--r-- 1 runner runner  187 Nov  8 04:54 README.md
+drwxr-xr-x 3 runner runner 4096 Nov  8 04:54 app
+-rw-r--r-- 1 runner runner    0 Nov  8 04:54 build-log.txt
+-rw-r--r-- 1 runner runner  217 Nov  8 04:54 build.gradle.kts
+drwxr-xr-x 3 runner runner 4096 Nov  8 04:54 gradle
+-rw-r--r-- 1 runner runner  133 Nov  8 04:54 gradle.properties
+-rw-r--r-- 1 runner runner  321 Nov  8 04:54 settings.gradle.kts
 == VERSIONS ==
 == INSTALL GRADLE 8.9 ==
 
@@ -62,10 +62,12 @@ Daemon will be stopped at the end of the build
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
-> Task :app:desugarDebugFileDependencies
 > Task :app:processDebugResources
-> Task :app:checkDebugDuplicateClasses
+> Task :app:desugarDebugFileDependencies
 > Task :app:mergeDebugStartupProfile
+> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugNativeLibs
 
 > Task :app:compileDebugKotlin
 w: file:///home/runner/work/Building-applications-apk/Building-applications-apk/app/src/main/java/com/example/aiflix/MainActivity.kt:500:35 'val Icons.Filled.ExitToApp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ExitToApp.
@@ -76,26 +78,24 @@ w: file:///home/runner/work/Building-applications-apk/Building-applications-apk/
 > Task :app:mergeDebugGlobalSynthetics
 > Task :app:processDebugJavaRes
 > Task :app:mergeLibDexDebug
-> Task :app:mergeDebugJniLibFolders
 > Task :app:mergeProjectDexDebug
-> Task :app:mergeDebugNativeLibs
-> Task :app:mergeDebugJavaResource
-> Task :app:validateSigningDebug
-> Task :app:writeDebugAppMetadata
 
 > Task :app:stripDebugDebugSymbols
 Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so.
 
+> Task :app:mergeDebugJavaResource
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
 > Task :app:writeDebugSigningConfigVersions
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 41s
+BUILD SUCCESSFUL in 2m 6s
 36 actionable tasks: 36 executed
 == BUILD DONE ==
-total 8584
-drwxr-xr-x 2 runner runner    4096 Nov  7 16:59 .
-drwxr-xr-x 3 runner runner    4096 Nov  7 16:59 ..
--rw-r--r-- 1 runner runner 8774303 Nov  7 16:59 app-debug.apk
--rw-r--r-- 1 runner runner     400 Nov  7 16:59 output-metadata.json
+total 8600
+drwxr-xr-x 2 runner runner    4096 Nov  8 04:56 .
+drwxr-xr-x 3 runner runner    4096 Nov  8 04:56 ..
+-rw-r--r-- 1 runner runner 8792465 Nov  8 04:56 app-debug.apk
+-rw-r--r-- 1 runner runner     400 Nov  8 04:56 output-metadata.json
