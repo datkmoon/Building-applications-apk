@@ -1,10 +1,14 @@
 package com.example.aiflix
 
+import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.os.Message
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
@@ -16,702 +20,1154 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedButtonDefaults
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import java.security.MessageDigest
 
-// ===================== الألوان والثوابت =====================
+// ==================== الألوان والثوابت ====================
 val BG = Color(0xFF12101F)
 val CARD = Color(0xFF1D1A2E)
+val CARD2 = Color(0xFF262242)
 val GOLD = Color(0xFFFFD93D)
 val ACCENT = Color(0xFFFF6B6B)
-val TXT = Color(0xFFEDEBF5)
-val SUB = Color(0xFF9A96B3)
+val TEXT = Color(0xFFEDEAF8)
+val SUB = Color(0xFF9B95B5)
 
-val FS_PROJECT = "gen-lang-client-0218887039"
-val FS_DB = "ai-studio-remixaicinemahub-acbcef0c-aaf6-4ffc-8861-aab0a44de2ff"
-val TMDB_KEY = "3ddf430dc71e432b8a635e59cc7a8d3e"
+// الموقع الرئيسي — التطبيق ما يحتوي أي مفتاح أو توكن، كل شي يجي من السيرفر
+val BASE = "https://aiflex2.vercel.app"
 
-fun fsUrl(): String =
-    "https://firestore.googleapis.com/v1/projects/" + FS_PROJECT + "/databases/" + FS_DB + "/documents:runQuery"
+val MovieData.displayTitle: String get() = if (titleAr.isNotEmpty()) titleAr else titleEn
+val MovieData.favKey: String get() = if (titleEn.isNotEmpty()) titleEn else titleAr
 
-// ===================== بيانات المستخدم =====================
-data class UserProfile(
-    val id: String,
-    val email: String,
-    val name: String,
-    val role: String
-)
-
-// ===================== أدوات الشبكة =====================
-fun httpGet(url: String): String? = try {
-    val conn = URL(url).openConnection() as HttpURLConnection
-    conn.connectTimeout = 15000
-    conn.readTimeout = 20000
-    conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-    val code = conn.responseCode
-    if (code in 200..299) conn.inputStream.bufferedReader().use { it.readText() } else null
-} catch (e: Exception) { null }
-
-fun httpPostJson(url: String, body: String): String? = try {
-    val conn = URL(url).openConnection() as HttpURLConnection
-    conn.requestMethod = "POST"
-    conn.connectTimeout = 15000
-    conn.readTimeout = 20000
-    conn.setRequestProperty("Content-Type", "application/json")
-    conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-    conn.doOutput = true
-    conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-    val code = conn.responseCode
-    if (code in 200..299) conn.inputStream.bufferedReader().use { it.readText() } else null
-} catch (e: Exception) { null }
-
-fun sha256Hex(input: String): String {
-    val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
-    val sb = StringBuilder()
-    for (b in digest) {
-        val v = b.toInt() and 0xFF
-        if (v < 16) sb.append('0')
-        sb.append(Integer.toHexString(v))
-    }
-    return sb.toString()
-}
-
-fun jsonEscape(s: String): String {
-    val sb = StringBuilder()
-    for (c in s) {
-        if (c == '\\' || c == '"') sb.append('\\')
-        sb.append(c)
-    }
-    return sb.toString()
-}
-
-// ===================== تسجيل الدخول (نفس منطق موقع AIFLIX) =====================
-fun usersQuery(field: String, value: String): String =
-    "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"users\"}],\"where\":{\"fieldFilter\":{\"field\":{\"fieldPath\":\"" + field + "\"},\"op\":\"EQUAL\",\"value\":{\"stringValue\":\"" + jsonEscape(value) + "\"}}},\"limit\":1}}"
-
-fun queryUserDoc(field: String, value: String): JSONObject? {
-    val resp = httpPostJson(fsUrl(), usersQuery(field, value)) ?: return null
+// ==================== HTTP ====================
+fun httpGet(urlStr: String): String? {
     return try {
-        val arr = JSONArray(resp)
-        for (i in 0 until arr.length()) {
-            val doc = arr.optJSONObject(i)?.optJSONObject("document")
-            if (doc != null) return doc
-        }
-        null
-    } catch (e: Exception) { null }
-}
-
-// يرجع المستخدم أو رسالة خطأ
-fun loginAttempt(identifier: String, password: String): Pair<UserProfile?, String?> {
-    val trimmed = identifier.trim()
-    val lower = trimmed.lowercase()
-    if (lower.isEmpty() || password.isEmpty()) return Pair(null, "الرجاء إدخال البريد الإلكتروني وكلمة المرور.")
-
-    var doc = queryUserDoc("email", lower)
-    if (doc == null && lower.contains("gamil.com")) doc = queryUserDoc("email", lower.replace("gamil.com", "gmail.com"))
-    if (doc == null && lower.contains("gmail.com")) doc = queryUserDoc("email", lower.replace("gmail.com", "gamil.com"))
-    if (doc == null) doc = queryUserDoc("username", trimmed)
-    if (doc == null) {
-        val direct = httpGet("https://firestore.googleapis.com/v1/projects/" + FS_PROJECT + "/databases/" + FS_DB + "/documents/users/" + URLEncoder.encode(trimmed, "UTF-8"))
-        if (direct != null) {
-            try { doc = JSONObject(direct) } catch (e: Exception) { }
-        }
-    }
-    if (doc == null) return Pair(null, "البريد الإلكتروني أو كلمة المرور غير صحيحة.")
-
-    val fields = doc.optJSONObject("fields") ?: return Pair(null, "حدث خطأ، جرب مرة ثانية.")
-    fun str(f: String): String = fields.optJSONObject(f)?.optString("stringValue") ?: ""
-
-    var valid = false
-    val hash = str("passwordHash")
-    val salt = str("passwordSalt")
-    if (hash.isNotEmpty() && salt.isNotEmpty()) {
-        valid = sha256Hex(salt + password) == hash.lowercase()
-    }
-    if (!valid) {
-        val plain = str("password")
-        if (plain.isNotEmpty() && plain.trim() == password.trim()) valid = true
-    }
-    if (!valid) return Pair(null, "البريد الإلكتروني أو كلمة المرور غير صحيحة.")
-
-    val status = str("status")
-    val banned = fields.optJSONObject("isBanned")?.optBoolean("booleanValue") ?: false
-    if (status == "banned" || banned) return Pair(null, "هذا الحساب موقوف من إدارة المنصة.")
-
-    val docId = doc.optString("name").substringAfterLast("/")
-    val email = str("email").ifEmpty { lower }
-    val name = str("displayName").ifEmpty { str("username").ifEmpty { email.substringBefore("@") } }
-    val role = str("role").ifEmpty { "member" }
-    return Pair(UserProfile(docId, email, name, role), null)
-}
-
-// ===================== بحث TMDB (نفس محرك موقعك) =====================
-fun genreNames(ids: JSONArray): String {
-    val map = mapOf(
-        28 to "أكشن", 12 to "مغامرة", 16 to "أنيميشن", 35 to "كوميديا", 80 to "جريمة",
-        99 to "وثائقي", 18 to "دراما", 10751 to "عائلي", 14 to "فانتازيا", 36 to "تاريخي",
-        27 to "رعب", 10402 to "موسيقى", 9648 to "غموض", 10749 to "رومانسية",
-        878 to "خيال علمي", 53 to "إثارة", 10752 to "حرب", 37 to "غربي",
-        10759 to "أكشن ومغامرة", 10765 to "خيال علمي و فانتازيا", 10768 to "حرب وسياسة"
-    )
-    val out = ArrayList<String>()
-    for (i in 0 until ids.length()) {
-        val n = map[ids.optInt(i)]
-        if (n != null) out.add(n)
-        if (out.size >= 3) break
-    }
-    return out.joinToString("، ")
-}
-
-fun tmdbSearchSync(query: String): List<MovieData> {
-    val list = ArrayList<MovieData>()
-    if (query.trim().isEmpty()) return list
-    val url = "https://api.themoviedb.org/3/search/multi?api_key=" + TMDB_KEY +
-        "&language=ar-SA&query=" + URLEncoder.encode(query.trim(), "UTF-8")
-    val resp = httpGet(url) ?: return list
-    val results = try { JSONObject(resp).optJSONArray("results") } catch (e: Exception) { null } ?: return list
-    val n = Math.min(results.length(), 15)
-    for (i in 0 until n) {
-        val r = results.optJSONObject(i) ?: continue
-        val media = r.optString("media_type")
-        if (media != "movie" && media != "tv") continue
-        val isTv = media == "tv"
-        val tmdbId = r.optInt("id")
-        var title = r.optString(if (isTv) "name" else "title")
-        if (title.isEmpty()) title = r.optString(if (isTv) "original_name" else "original_title")
-        if (title.isEmpty()) continue
-        val date = r.optString(if (isTv) "first_air_date" else "release_date")
-        val year = if (date.length >= 4) date.substring(0, 4) else ""
-        val score = r.optDouble("vote_average", 0.0)
-        val rating = if (score > 0) (Math.round(score * 10.0) / 10.0).toString() + "/10" else ""
-        val overview = r.optString("overview")
-        val genreStr = genreNames(r.optJSONArray("genre_ids") ?: JSONArray())
-        var poster = ""
-        val pp = r.optString("poster_path")
-        if (pp.isNotEmpty()) poster = "https://image.tmdb.org/t/p/w500" + pp
-        var backdrop = poster
-        val bp = r.optString("backdrop_path")
-        if (bp.isNotEmpty()) backdrop = "https://image.tmdb.org/t/p/w780" + bp
-        var imdb = ""
+        val conn = URL(urlStr).openConnection() as HttpURLConnection
+        conn.connectTimeout = 15000
+        conn.readTimeout = 20000
+        conn.setRequestProperty("User-Agent", "AIFLIX-App/2.0")
+        conn.setRequestProperty("Accept", "application/json")
         try {
-            val ext = httpGet("https://api.themoviedb.org/3/" + media + "/" + tmdbId + "/external_ids?api_key=" + TMDB_KEY)
-            if (ext != null) imdb = JSONObject(ext).optString("imdb_id")
-        } catch (e: Exception) { }
-        var stream: String
-        if (imdb.startsWith("tt")) {
-            stream = "https://embed.smashystream.com/playere.php?imdb=" + imdb
-            if (isTv) stream = stream + "&season=1&episode=1"
-        } else {
-            stream = "https://embed.smashystream.com/playere.php?tmdb=" + tmdbId
-            if (isTv) stream = stream + "&season=1&episode=1"
+            if (conn.responseCode in 200..299) conn.inputStream.bufferedReader().readText() else null
+        } finally {
+            conn.disconnect()
         }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+fun httpPostJson(urlStr: String, body: JSONObject): String? {
+    return try {
+        val conn = URL(urlStr).openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.connectTimeout = 15000
+        conn.readTimeout = 25000
+        conn.doOutput = true
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+        conn.setRequestProperty("User-Agent", "AIFLIX-App/2.0")
+        val out = body.toString().toByteArray(Charsets.UTF_8)
+        conn.outputStream.use { it.write(out) }
+        if (conn.responseCode in 200..299) conn.inputStream.bufferedReader().readText() else null
+    } catch (e: Exception) {
+        null
+    }
+}
+
+// ==================== تحويل بيانات الأفلام من السيرفر ====================
+fun parseMovieArray(arr: JSONArray): List<MovieData> {
+    val list = ArrayList<MovieData>()
+    for (i in 0 until arr.length()) {
+        val o = arr.optJSONObject(i) ?: continue
+        val poster = o.optString("p", "")
+        val bd = o.optString("bd", "")
+        val backdrop = if (bd.isNotEmpty()) bd else poster.replace("_FMjpg_UX600_", "")
         list.add(
             MovieData(
-                titleAr = title,
-                titleEn = "",
-                isSeries = isTv,
-                year = year,
-                rating = rating,
-                genres = genreStr,
-                cast = "",
-                synopsis = overview,
+                titleAr = o.optString("a", ""),
+                titleEn = o.optString("e", ""),
+                isSeries = o.optString("t", "m") == "s",
+                year = o.optString("y", ""),
+                rating = o.optString("r", ""),
+                genres = o.optString("g", ""),
+                cast = o.optString("c", ""),
+                synopsis = o.optString("syn", ""),
                 poster = poster,
                 backdrop = backdrop,
-                imdbId = imdb,
-                streamUrl = stream
+                imdbId = o.optString("i", ""),
+                streamUrl = o.optString("s", "")
             )
         )
     }
     return list
 }
 
-// ===================== تحميل الصور =====================
-object ImageCache {
-    val map = HashMap<String, Bitmap>()
-}
-
-fun loadBitmapSync(url: String): Bitmap? {
-    if (url.isEmpty()) return null
-    ImageCache.map[url]?.let { return it }
+fun parseMovies(jsonText: String): List<MovieData> {
     return try {
-        val bmp = BitmapFactory.decodeStream(URL(url).openStream())
-        if (bmp != null) ImageCache.map[url] = bmp
-        bmp
-    } catch (e: Exception) { null }
+        val trimmed = jsonText.trim()
+        if (trimmed.startsWith("[")) parseMovieArray(JSONArray(trimmed))
+        else {
+            val obj = JSONObject(trimmed)
+            val arr = obj.optJSONArray("movies")
+            if (arr != null) parseMovieArray(arr) else ArrayList()
+        }
+    } catch (e: Exception) {
+        ArrayList()
+    }
 }
 
-// ===================== التنقل =====================
-sealed class Screen {
-    object Login : Screen()
-    object Home : Screen()
-    data class Details(val movie: MovieData) : Screen()
-    data class Player(val movie: MovieData) : Screen()
+// ==================== المفضلة (مثل الموقع — محفوظة على الجهاز) ====================
+fun favoritesKey(userId: String): String = "aiflix_favorites_" + userId
+
+fun loadFavorites(ctx: Context, userId: String): List<MovieData> {
+    if (userId.isEmpty()) return ArrayList()
+    return try {
+        val stored = ctx.getSharedPreferences("aiflix_prefs", Context.MODE_PRIVATE).getString(favoritesKey(userId), "[]")
+        parseMovieArray(JSONArray(stored ?: "[]"))
+    } catch (e: Exception) {
+        ArrayList()
+    }
+}
+
+fun movieToCompactJson(m: MovieData): JSONObject {
+    val o = JSONObject()
+    o.put("a", m.titleAr)
+    o.put("e", m.titleEn)
+    o.put("t", if (m.isSeries) "s" else "m")
+    o.put("y", m.year)
+    o.put("r", m.rating)
+    o.put("g", m.genres)
+    o.put("c", m.cast)
+    o.put("syn", m.synopsis)
+    o.put("i", m.imdbId)
+    o.put("p", m.poster)
+    o.put("bd", m.backdrop)
+    o.put("s", m.streamUrl)
+    return o
+}
+
+fun toggleFavoriteInPrefs(ctx: Context, userId: String, m: MovieData): List<MovieData> {
+    val prefs = ctx.getSharedPreferences("aiflix_prefs", Context.MODE_PRIVATE)
+    val current = ArrayList(loadFavorites(ctx, userId))
+    val idx = current.indexOfFirst { it.favKey == m.favKey }
+    if (idx >= 0) current.removeAt(idx) else current.add(m)
+    val arr = JSONArray()
+    for (x in current) arr.put(movieToCompactJson(x))
+    prefs.edit().putString(favoritesKey(userId), arr.toString()).apply()
+    return current
+}
+
+// ==================== حساب المستخدم ====================
+class UserData(val id: String, val email: String, val name: String, val role: String)
+class AuthResult(val success: Boolean, val user: UserData?, val error: String?)
+
+fun parseAuth(txt: String?): AuthResult {
+    if (txt == null) return AuthResult(false, null, "ما نكدر نوصل للسيرفر، تأكد من الإنترنت وحاول مرة ثانية")
+    return try {
+        val obj = JSONObject(txt)
+        if (obj.optBoolean("success", false)) {
+            val u = obj.optJSONObject("user") ?: JSONObject()
+            var name = u.optString("displayName", "")
+            if (name.isEmpty()) name = u.optString("username", "")
+            if (name.isEmpty()) {
+                val em = u.optString("email", "")
+                name = if (em.contains("@")) em.substring(0, em.indexOf("@")) else "عضو"
+            }
+            AuthResult(true, UserData(u.optString("id", ""), u.optString("email", ""), name, u.optString("role", "member")), null)
+        } else {
+            AuthResult(false, null, obj.optString("error", "فشلت العملية، حاول مرة ثانية"))
+        }
+    } catch (e: Exception) {
+        AuthResult(false, null, "صار خطأ بالاتصال، حاول مرة ثانية")
+    }
+}
+
+suspend fun apiLogin(identifier: String, password: String): AuthResult = withContext(Dispatchers.IO) {
+    val body = JSONObject()
+    body.put("identifier", identifier)
+    body.put("password", password)
+    parseAuth(httpPostJson(BASE + "/api/app/login", body))
+}
+
+suspend fun apiRegister(name: String, email: String, password: String, confirm: String, key: String): AuthResult = withContext(Dispatchers.IO) {
+    val body = JSONObject()
+    body.put("name", name)
+    body.put("email", email)
+    body.put("password", password)
+    body.put("confirmPassword", confirm)
+    body.put("key", key)
+    parseAuth(httpPostJson(BASE + "/api/app/register", body))
+}
+
+// ==================== الكتالوج والبحث والمواسم من السيرفر ====================
+suspend fun apiCatalog(): List<MovieData> = withContext(Dispatchers.IO) {
+    val txt = httpGet(BASE + "/api/app/catalog")
+    val parsed = if (txt != null) parseMovies(txt) else ArrayList()
+    if (parsed.isNotEmpty()) parsed else catalogMovies()
+}
+
+suspend fun apiSearch(q: String): List<MovieData> = withContext(Dispatchers.IO) {
+    val enc = URLEncoder.encode(q, "UTF-8")
+    val txt = httpGet(BASE + "/api/app/search?q=" + enc)
+    if (txt != null) parseMovies(txt) else ArrayList()
+}
+
+suspend fun apiSeriesEpisodes(imdbId: String): Map<Int, List<Int>> = withContext(Dispatchers.IO) {
+    val map = HashMap<Int, List<Int>>()
+    try {
+        if (imdbId.isNotEmpty()) {
+            val txt = httpGet(BASE + "/api/series/episodes?imdbId=" + URLEncoder.encode(imdbId, "UTF-8"))
+            if (txt != null) {
+                val obj = JSONObject(txt)
+                val seasonsObj = obj.optJSONObject("seasons")
+                if (seasonsObj != null) {
+                    val keys = seasonsObj.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        val sn = k.toIntOrNull() ?: continue
+                        val eps = seasonsObj.optJSONArray(k) ?: continue
+                        val list = ArrayList<Int>()
+                        for (i in 0 until eps.length()) list.add(eps.optInt(i, i + 1))
+                        map[sn] = list
+                    }
+                }
+            }
+        }
+    } catch (e: Exception) {
+    }
+    map
+}
+
+// ==================== تحميل الصور ====================
+object ImageCache {
+    val cache = HashMap<String, Bitmap>()
+    fun get(url: String): Bitmap? = cache[url]
+    fun put(url: String, bmp: Bitmap) {
+        if (cache.size > 80) cache.clear()
+        cache[url] = bmp
+    }
+}
+
+suspend fun loadBitmap(url: String): Bitmap? {
+    if (url.isEmpty()) return null
+    ImageCache.get(url)?.let { return it }
+    return withContext(Dispatchers.IO) {
+        try {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 15000
+            conn.readTimeout = 20000
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+            val bmp = BitmapFactory.decodeStream(conn.inputStream)
+            conn.disconnect()
+            if (bmp != null) ImageCache.put(url, bmp)
+            bmp
+        } catch (e: Exception) {
+            null
+        }
+    }
 }
 
 @Composable
-fun WebImage(url: String, modifier: Modifier) {
-    var bmp by remember(url) { mutableStateOf(ImageCache.map[url]) }
+fun WebImage(url: String, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
+    var bmp by remember(url) { mutableStateOf<ImageBitmap?>(ImageCache.get(url)?.asImageBitmap()) }
     LaunchedEffect(url) {
         if (bmp == null) {
-            bmp = withContext(Dispatchers.IO) { loadBitmapSync(url) }
+            val b = loadBitmap(url)
+            if (b != null) bmp = b.asImageBitmap()
         }
     }
-    if (bmp != null) {
-        Image(
-            bitmap = bmp!!.asImageBitmap(),
-            contentDescription = null,
-            modifier = modifier,
-            contentScale = ContentScale.Crop
-        )
+    val b = bmp
+    if (b != null) {
+        Image(bitmap = b, contentDescription = null, modifier = modifier, contentScale = contentScale)
     } else {
-        Box(modifier = modifier.background(CARD))
+        Box(modifier.background(CARD2))
     }
 }
 
+// ==================== أشكال الحقول والأزرار ====================
+@Composable
+fun darkFieldColors(): androidx.compose.material3.OutlinedTextFieldColors = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = GOLD,
+    unfocusedBorderColor = Color(0xFF3A3358),
+    focusedLabelColor = GOLD,
+    unfocusedLabelColor = SUB,
+    cursorColor = GOLD,
+    focusedTextColor = TEXT,
+    unfocusedTextColor = TEXT
+)
+
+@Composable
+fun goldButtonColors(): androidx.compose.material3.ButtonColors = ButtonDefaults.buttonColors(
+    containerColor = GOLD,
+    contentColor = Color(0xFF1A1500)
+)
+
+// ==================== التطبيق الرئيسي ====================
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
-                Surface(color = BG) {
-                    AiflixApp()
-                }
-            }
+            AiflixApp()
         }
     }
+}
+
+fun sectionTitle(section: String): String = when (section) {
+    "movies" -> "الأفلام"
+    "series" -> "المسلسلات"
+    "fav" -> "المفضلة"
+    else -> "الرئيسية"
 }
 
 @Composable
 fun AiflixApp() {
     val ctx = LocalContext.current
     val prefs = remember { ctx.getSharedPreferences("aiflix_prefs", Context.MODE_PRIVATE) }
-    var user by remember { mutableStateOf<UserProfile?>(null) }
-    var checked by remember { mutableStateOf(false) }
-    val stack = remember { mutableStateListOf<Screen>() }
+    var userId by remember { mutableStateOf<String?>(prefs.getString("user_id", null)) }
+    var userName by remember { mutableStateOf(prefs.getString("user_name", "") ?: "") }
+    var userEmail by remember { mutableStateOf(prefs.getString("user_email", "") ?: "") }
+    var userRole by remember { mutableStateOf(prefs.getString("user_role", "member") ?: "member") }
+    var stack by remember { mutableStateOf(if (userId != null) listOf("home") else listOf("login")) }
+    var selectedMovie by remember { mutableStateOf<MovieData?>(null) }
+    var favorites by remember(userId) { mutableStateOf<List<MovieData>>(loadFavorites(ctx, userId ?: "")) }
 
-    LaunchedEffect(Unit) {
-        val id = prefs.getString("user_id", null)
-        if (id != null) {
-            user = UserProfile(
-                id = id,
-                email = prefs.getString("user_email", "")!!,
-                name = prefs.getString("user_name", "")!!,
-                role = prefs.getString("user_role", "member")!!
-            )
-            stack.add(Screen.Home)
+    fun saveSession(id: String, email: String, name: String, role: String) {
+        prefs.edit().putString("user_id", id).putString("user_email", email).putString("user_name", name).putString("user_role", role).apply()
+        userId = id
+        userEmail = email
+        userName = name
+        userRole = role
+    }
+
+    fun doLogout() {
+        prefs.edit().remove("user_id").remove("user_email").remove("user_name").remove("user_role").apply()
+        userId = null
+        userName = ""
+        userEmail = ""
+        userRole = "member"
+        selectedMovie = null
+        stack = listOf("login")
+    }
+
+    val current = if (stack.isEmpty()) "login" else stack.last()
+    BackHandler(enabled = current != "home" && current != "login") {
+        if (stack.size > 1) stack = stack.dropLast(1)
+    }
+
+    when (current) {
+        "login" -> LoginScreen(
+            onSuccess = { u ->
+                saveSession(u.id, u.email, u.name, u.role)
+                stack = listOf("home")
+            },
+            onSignup = { stack = stack + "signup" }
+        )
+        "signup" -> SignupScreen(
+            onBack = { if (stack.size > 1) stack = stack.dropLast(1) },
+            onCreated = { u ->
+                saveSession(u.id, u.email, u.name, u.role)
+                stack = listOf("home")
+            }
+        )
+        "home" -> HomeScreen(
+            userName = userName,
+            userEmail = userEmail,
+            userRole = userRole,
+            favorites = favorites,
+            onLogout = { doLogout() },
+            onOpen = { m ->
+                selectedMovie = m
+                stack = stack + "details"
+            }
+        )
+        "details" -> {
+            val m = selectedMovie
+            if (m != null) {
+                DetailsScreen(
+                    movie = m,
+                    isFavorite = favorites.any { it.favKey == m.favKey },
+                    onToggleFavorite = {
+                        val id = userId
+                        if (id != null) favorites = toggleFavoriteInPrefs(ctx, id, m)
+                    },
+                    onBack = { if (stack.size > 1) stack = stack.dropLast(1) },
+                    onPlay = { stack = stack + "player" }
+                )
+            }
         }
-        checked = true
-    }
-
-    if (!checked) {
-        Box(Modifier.fillMaxSize().background(BG))
-        return
-    }
-
-    if (user == null) {
-        LoginScreen(onSuccess = { u ->
-            user = u
-            prefs.edit()
-                .putString("user_id", u.id)
-                .putString("user_email", u.email)
-                .putString("user_name", u.name)
-                .putString("user_role", u.role)
-                .apply()
-            stack.clear()
-            stack.add(Screen.Home)
-        })
-        return
-    }
-
-    val current: Screen = if (stack.isEmpty()) Screen.Home else stack.last()
-
-    BackHandler(enabled = stack.size > 1) { stack.removeAt(stack.size - 1) }
-
-    when (val scr = current) {
-        is Screen.Login -> { }
-        is Screen.Home -> HomeScreen(user!!, onLogout = {
-            prefs.edit().clear().apply()
-            user = null
-            stack.clear()
-        }, onOpen = { m -> stack.add(Screen.Details(m)) })
-        is Screen.Details -> DetailsScreen(scr.movie, onPlay = { m -> stack.add(Screen.Player(m)) })
-        is Screen.Player -> PlayerScreen(scr.movie)
+        "player" -> {
+            val m = selectedMovie
+            if (m != null) {
+                PlayerScreen(movie = m, onBack = { if (stack.size > 1) stack = stack.dropLast(1) })
+            } else {
+                if (stack.size > 1) stack = stack.dropLast(1)
+            }
+        }
+        else -> LoginScreen(
+            onSuccess = { u ->
+                saveSession(u.id, u.email, u.name, u.role)
+                stack = listOf("home")
+            },
+            onSignup = { stack = stack + "signup" }
+        )
     }
 }
 
-// ===================== شاشة تسجيل الدخول =====================
+// ==================== شاشة تسجيل الدخول ====================
 @Composable
-fun LoginScreen(onSuccess: (UserProfile) -> Unit) {
+fun LoginScreen(onSuccess: (UserData) -> Unit, onSignup: () -> Unit) {
+    var identifier by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    Column(
+        Modifier.fillMaxSize().background(BG).verticalScroll(rememberScrollState()).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(56.dp))
+        Text("AIFLIX", color = GOLD, fontSize = 44.sp, fontWeight = FontWeight.Black)
+        Text("منصة الأفلام والمسلسلات", color = SUB, fontSize = 14.sp)
+        Spacer(Modifier.height(40.dp))
+        OutlinedTextField(
+            value = identifier,
+            onValueChange = { identifier = it },
+            label = { Text("البريد الإلكتروني") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            modifier = Modifier.fillMaxWidth(),
+            colors = darkFieldColors()
+        )
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("كلمة المرور") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+            colors = darkFieldColors()
+        )
+        if (error != null) {
+            Spacer(Modifier.height(10.dp))
+            Text(error ?: "", color = ACCENT, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        }
+        Spacer(Modifier.height(20.dp))
+        Button(
+            onClick = {
+                if (loading) return@Button
+                val idf = identifier.trim()
+                if (idf.isEmpty() || password.isEmpty()) {
+                    error = "اكتب البريد الإلكتروني وكلمة المرور"
+                    return@Button
+                }
+                loading = true
+                error = null
+                scope.launch {
+                    val res = apiLogin(idf, password)
+                    loading = false
+                    if (res.success && res.user != null) onSuccess(res.user!!) else error = res.error ?: "فشل تسجيل الدخول"
+                }
+            },
+            enabled = !loading,
+            colors = goldButtonColors(),
+            modifier = Modifier.fillMaxWidth().height(52.dp)
+        ) {
+            if (loading) {
+                CircularProgressIndicator(Modifier.size(20.dp), color = Color(0xFF1A1500), strokeWidth = 2.dp)
+            } else {
+                Text("تسجيل الدخول", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        TextButton(onClick = onSignup) {
+            Text("ما عندك حساب؟ إنشاء حساب جديد", color = GOLD, fontSize = 14.sp)
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+// ==================== شاشة إنشاء الحساب ====================
+@Composable
+fun SignupScreen(onBack: () -> Unit, onCreated: (UserData) -> Unit) {
+    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
+    var confirm by remember { mutableStateOf("") }
+    var key by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
-    Box(Modifier.fillMaxSize().background(BG).padding(24.dp)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().align(Alignment.Center),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("AIFLIX", color = GOLD, fontSize = 46.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(4.dp))
-            Text("منصة الأفلام والمسلسلات #1", color = SUB, fontSize = 14.sp)
-            Spacer(Modifier.height(36.dp))
-            Text("تسجيل الدخول", color = TXT, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(20.dp))
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("البريد الإلكتروني") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("كلمة المرور") },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(24.dp))
-            if (loading) {
-                CircularProgressIndicator(color = GOLD)
-            } else {
-                Button(
-                    onClick = {
-                        loading = true
-                        error = null
-                        Thread {
-                            val (u, err) = loginAttempt(email, password)
-                            if (u != null) {
-                                onSuccess(u)
-                            } else {
-                                error = err
-                            }
-                            loading = false
-                        }.start()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = GOLD, contentColor = Color(0xFF1A1608)),
-                    modifier = Modifier.fillMaxWidth().height(52.dp)
-                ) {
-                    Text("دخول", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+    Column(
+        Modifier.fillMaxSize().background(BG).verticalScroll(rememberScrollState()).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, contentDescription = "رجوع", tint = GOLD) }
+            Spacer(Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("إنشاء حساب جديد", color = TEXT, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        Text("انضم إلى AIFLIX وابدأ بالمشاهدة فوراً", color = SUB, fontSize = 13.sp, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(24.dp))
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("الاسم بالكامل") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            colors = darkFieldColors()
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("البريد الإلكتروني") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            modifier = Modifier.fillMaxWidth(),
+            colors = darkFieldColors()
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("كلمة المرور (6 أحرف على الأقل)") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+            colors = darkFieldColors()
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = confirm,
+            onValueChange = { confirm = it },
+            label = { Text("تأكيد كلمة المرور") },
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+            colors = darkFieldColors()
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = key,
+            onValueChange = { key = it.uppercase().filter { c -> !c.isWhitespace() } },
+            label = { Text("مفتاح إنشاء الحساب (8 خانات)") },
+            singleLine = true,
+            supportingText = { Text("تحصل عليه من المالك — يتم تغييره كل 60 ثانية", color = SUB, fontSize = 11.sp) },
+            modifier = Modifier.fillMaxWidth(),
+            colors = darkFieldColors()
+        )
+        if (error != null) {
+            Spacer(Modifier.height(10.dp))
+            Text(error ?: "", color = ACCENT, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        }
+        Spacer(Modifier.height(20.dp))
+        Button(
+            onClick = {
+                if (loading) return@Button
+                val n = name.trim()
+                val em = email.trim().lowercase()
+                if (n.isEmpty()) {
+                    error = "اكتب اسمك بالكامل"
+                    return@Button
                 }
+                if (!android.util.Patterns.EMAIL_ADDRESS.matcher(em).matches()) {
+                    error = "صيغة البريد الإلكتروني غير صالحة"
+                    return@Button
+                }
+                if (password.length < 6) {
+                    error = "كلمة المرور لازم تكون 6 أحرف على الأقل"
+                    return@Button
+                }
+                if (password != confirm) {
+                    error = "كلمتا المرور غير متطابقتين"
+                    return@Button
+                }
+                if (key.length != 8) {
+                    error = "المفتاح لازم يكون 8 خانات بالضبط"
+                    return@Button
+                }
+                loading = true
+                error = null
+                scope.launch {
+                    val res = apiRegister(n, em, password, confirm, key)
+                    loading = false
+                    if (res.success && res.user != null) onCreated(res.user!!) else error = res.error ?: "فشل إنشاء الحساب"
+                }
+            },
+            enabled = !loading,
+            colors = goldButtonColors(),
+            modifier = Modifier.fillMaxWidth().height(52.dp)
+        ) {
+            if (loading) {
+                CircularProgressIndicator(Modifier.size(20.dp), color = Color(0xFF1A1500), strokeWidth = 2.dp)
+            } else {
+                Text("إنشاء حساب وابدأ بالمشاهدة فوراً", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
-            if (error != null) {
-                Spacer(Modifier.height(14.dp))
-                Text(error!!, color = ACCENT, fontSize = 14.sp, textAlign = TextAlign.Center)
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+// ==================== عنصر القائمة الجانبية ====================
+@Composable
+fun DrawerItem(title: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (selected) CARD2 else Color.Transparent).clickable { onClick() }.padding(vertical = 12.dp, horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, color = if (selected) GOLD else TEXT, fontSize = 16.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+    }
+}
+
+// ==================== بطاقة الفيلم ====================
+@Composable
+fun MovieCard(m: MovieData, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(6.dp).clip(RoundedCornerShape(12.dp)).background(CARD).clickable { onClick() }
+    ) {
+        Box(Modifier.fillMaxWidth().aspectRatio(0.72f).clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))) {
+            WebImage(url = if (m.poster.isNotEmpty()) m.poster else m.backdrop, modifier = Modifier.fillMaxSize())
+            if (m.rating.isNotEmpty()) {
+                Text(
+                    m.rating,
+                    color = GOLD,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(Color(0xAA000000)).clip(RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp)
+                )
             }
-            Spacer(Modifier.height(28.dp))
-            Text("نفس حسابك في موقع AIFLIX يعمل هنا", color = SUB, fontSize = 12.sp)
+        }
+        Column(Modifier.padding(8.dp)) {
+            Text(m.displayTitle, color = TEXT, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(2.dp))
+            val sub = ArrayList<String>()
+            if (m.year.isNotEmpty()) sub.add(m.year)
+            if (m.isSeries) sub.add("مسلسل")
+            if (sub.isNotEmpty()) {
+                Text(sub.joinToString(" • "), color = SUB, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
 
-// ===================== الشاشة الرئيسية =====================
+// ==================== الشاشة الرئيسية ====================
 @Composable
-fun HomeScreen(user: UserProfile, onLogout: () -> Unit, onOpen: (MovieData) -> Unit) {
+fun HomeScreen(
+    userName: String,
+    userEmail: String,
+    userRole: String,
+    favorites: List<MovieData>,
+    onLogout: () -> Unit,
+    onOpen: (MovieData) -> Unit
+) {
+    var drawerOpen by remember { mutableStateOf(false) }
+    var section by remember { mutableStateOf("all") }
     var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<MovieData>?>(null) }
+    var searchResults by remember { mutableStateOf<List<MovieData>?>(null) }
     var searching by remember { mutableStateOf(false) }
-    val catalog = remember { catalogMovies() }
+    var serverCatalog by remember { mutableStateOf<List<MovieData>?>(null) }
+    var loadingCatalog by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        serverCatalog = apiCatalog()
+        loadingCatalog = false
+    }
 
     LaunchedEffect(query) {
-        if (query.trim().isEmpty()) {
-            results = null
+        val q = query.trim()
+        if (q.length < 2) {
+            searchResults = null
             searching = false
         } else {
             searching = true
-            val q = query
             delay(600)
-            val found = withContext(Dispatchers.IO) { tmdbSearchSync(q) }
-            results = found
+            val res = apiSearch(q)
+            searchResults = res
             searching = false
         }
     }
 
-    Column(Modifier.fillMaxSize().background(BG)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("AIFLIX", color = GOLD, fontSize = 26.sp, fontWeight = FontWeight.Black)
-                Text("مرحباً " + user.name, color = SUB, fontSize = 13.sp)
-            }
-            IconButton(onClick = onLogout) {
-                Icon(Icons.Filled.ExitToApp, contentDescription = "خروج", tint = SUB)
-            }
-        }
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it },
-            placeholder = { Text("ابحث عن فيلم أو مسلسل...") },
-            singleLine = true,
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = { query = "" }) {
-                        Icon(Icons.Filled.Close, contentDescription = "مسح", tint = SUB)
-                    }
-                } else {
-                    Icon(Icons.Filled.Search, contentDescription = "بحث", tint = SUB)
-                }
-            },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-        )
-        if (searching) {
-            CircularProgressIndicator(
-                color = GOLD,
-                modifier = Modifier.padding(18.dp)
-            )
-        }
-        val list = results ?: catalog
-        val showEmpty = results != null && results!!.isEmpty() && !searching
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
-            modifier = Modifier.fillMaxSize().padding(8.dp)
-        ) {
-            if (results == null) {
-                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
-                    Text(
-                        "الأكثر رواجاً",
-                        color = TXT, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 10.dp, top = 14.dp, bottom = 6.dp)
-                    )
-                }
-            }
-            if (showEmpty) {
-                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(3) }) {
-                    Text(
-                        "ماكو نتائج للبحث... جرب اسم ثاني",
-                        color = SUB, fontSize = 14.sp,
-                        modifier = Modifier.padding(20.dp).fillMaxWidth(),
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-            items(list) { m ->
-                MovieCard(m, onOpen)
-            }
-        }
+    val fullCatalog = serverCatalog ?: catalogMovies()
+    val baseList = when (section) {
+        "movies" -> fullCatalog.filter { !it.isSeries }
+        "series" -> fullCatalog.filter { it.isSeries }
+        "fav" -> favorites
+        else -> fullCatalog
     }
-}
+    val displayList = searchResults ?: baseList
 
-@Composable
-fun MovieCard(m: MovieData, onOpen: (MovieData) -> Unit) {
-    Column(
-        modifier = Modifier
-            .padding(6.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(CARD)
-            .clickable { onOpen(m) }
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.7f)
-                .clip(RoundedCornerShape(10.dp))
-        ) {
-            WebImage(m.poster, Modifier.fillMaxSize())
-            Text(
-                m.rating,
-                color = Color.Black,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(6.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(GOLD)
-                    .padding(horizontal = 5.dp, vertical = 2.dp)
-            )
-            Text(
-                if (m.isSeries) "مسلسل" else "فيلم",
-                color = Color.White,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(6.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xCC221F35))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-        }
-        Text(
-            m.titleAr,
-            color = TXT, fontSize = 12.sp, fontWeight = FontWeight.Medium,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)
-        )
-    }
-}
-
-// ===================== شاشة التفاصيل =====================
-@Composable
-fun DetailsScreen(m: MovieData, onPlay: (MovieData) -> Unit) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(BG)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Box(Modifier.fillMaxWidth().height(230.dp)) {
-            WebImage(m.backdrop, Modifier.fillMaxSize())
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(120.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(Brush.verticalGradient(listOf(Color.Transparent, BG)))
-            )
-        }
-        Row(Modifier.padding(horizontal = 16.dp)) {
-            Box(
-                Modifier
-                    .width(105.dp)
-                    .aspectRatio(0.7f)
-                    .clip(RoundedCornerShape(10.dp))
+    Box(Modifier.fillMaxSize().background(BG)) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                WebImage(m.poster, Modifier.fillMaxSize())
-            }
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.padding(top = 8.dp)) {
-                Text(m.titleAr, color = TXT, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                if (m.titleEn.isNotEmpty()) {
-                    Text(m.titleEn, color = SUB, fontSize = 13.sp)
+                IconButton(onClick = { drawerOpen = true }) {
+                    Icon(Icons.Filled.Menu, contentDescription = "القائمة", tint = GOLD)
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    (if (m.isSeries) "مسلسل" else "فيلم") + "  •  " + m.year + (if (m.rating.isNotEmpty()) "  •  ⭐ " + m.rating else ""),
-                    color = GOLD, fontSize = 13.sp
-                )
-                if (m.genres.isNotEmpty()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(m.genres, color = SUB, fontSize = 12.sp)
+                Text("AIFLIX", color = GOLD, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.width(8.dp))
+                Text(sectionTitle(section), color = SUB, fontSize = 13.sp)
+                Spacer(Modifier.weight(1f))
+                if (loadingCatalog || searching) {
+                    CircularProgressIndicator(Modifier.size(18.dp), color = GOLD, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(12.dp))
                 }
             }
-        }
-        Spacer(Modifier.height(22.dp))
-        Button(
-            onClick = { onPlay(m) },
-            colors = ButtonDefaults.buttonColors(containerColor = GOLD, contentColor = Color(0xFF1A1608)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(52.dp)
-        ) {
-            Text("▶   شاهد الآن", fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        }
-        if (m.synopsis.isNotEmpty()) {
-            Spacer(Modifier.height(22.dp))
-            Text("القصة", color = TXT, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
-            Spacer(Modifier.height(6.dp))
-            Text(m.synopsis, color = SUB, fontSize = 13.sp, lineHeight = 20.sp, modifier = Modifier.padding(horizontal = 16.dp))
-        }
-        if (m.cast.isNotEmpty()) {
-            Spacer(Modifier.height(18.dp))
-            Text("طاقم العمل", color = TXT, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
-            Spacer(Modifier.height(6.dp))
-            Text(m.cast, color = SUB, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 16.dp))
-        }
-        Spacer(Modifier.height(40.dp))
-    }
-}
-
-// ===================== شاشة المشغل =====================
-@Composable
-fun PlayerScreen(m: MovieData) {
-    var loading by remember { mutableStateOf(true) }
-    Column(Modifier.fillMaxSize().background(Color.Black)) {
-        Text(
-            "← " + m.titleAr,
-            color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(14.dp)
-        )
-        Box(Modifier.fillMaxSize()) {
-            AndroidView(
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.mediaPlaybackRequiresUserGesture = false
-                        settings.loadWithOverviewMode = true
-                        settings.useWideViewPort = true
-                        webViewClient = object : WebViewClient() {
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                loading = false
-                            }
-                        }
-                        webChromeClient = WebChromeClient()
-                        loadUrl(m.streamUrl)
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text("ابحث عن فيلم أو مسلسل...", color = SUB) },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = SUB) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, contentDescription = "مسح", tint = SUB) }
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = darkFieldColors()
             )
-            if (loading) {
-                CircularProgressIndicator(
-                    color = GOLD,
-                    modifier = Modifier.align(Alignment.Center)
+            Spacer(Modifier.height(6.dp))
+            if (displayList.isEmpty() && !searching) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    val msg = when {
+                        searchResults != null -> "ما كو نتائج للبحث"
+                        section == "fav" -> "ما عندك أفلام بالمفضلة بعد — اضغط على القلب بصفحة الفيلم"
+                        else -> "ما كو محتوى حالياً"
+                    }
+                    Text(msg, color = SUB, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(32.dp))
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 4.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp)
+                ) {
+                    items(displayList) { m ->
+                        MovieCard(m, onClick = { onOpen(m) })
+                    }
+                }
+            }
+        }
+
+        if (drawerOpen) {
+            Box(Modifier.fillMaxSize().background(Color(0xCC000000)).clickable { drawerOpen = false })
+            Column(
+                Modifier.fillMaxHeight().width(300.dp).background(CARD).padding(20.dp)
+            ) {
+                Text("AIFLIX", color = GOLD, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(4.dp))
+                Text(userName, color = TEXT, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(userEmail, color = SUB, fontSize = 12.sp)
+                if (userRole == "owner") {
+                    Text("المالك ★", color = ACCENT, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(20.dp))
+                DrawerItem("الرئيسية", section == "all") {
+                    section = "all"
+                    query = ""
+                    drawerOpen = false
+                }
+                DrawerItem("الأفلام", section == "movies") {
+                    section = "movies"
+                    query = ""
+                    drawerOpen = false
+                }
+                DrawerItem("المسلسلات", section == "series") {
+                    section = "series"
+                    query = ""
+                    drawerOpen = false
+                }
+                DrawerItem("المفضلة (" + favorites.size + ")", section == "fav") {
+                    section = "fav"
+                    query = ""
+                    drawerOpen = false
+                }
+                Spacer(Modifier.weight(1f))
+                HorizontalDivider(color = Color(0xFF2E2950))
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onLogout() }.padding(vertical = 12.dp, horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.ExitToApp, contentDescription = null, tint = ACCENT)
+                    Spacer(Modifier.width(8.dp))
+                    Text("تسجيل الخروج", color = ACCENT, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+// ==================== شاشة التفاصيل ====================
+@Composable
+fun DetailsScreen(
+    movie: MovieData,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    onBack: () -> Unit,
+    onPlay: () -> Unit
+) {
+    Column(Modifier.fillMaxSize().background(BG).verticalScroll(rememberScrollState())) {
+        Box(Modifier.fillMaxWidth().height(280.dp)) {
+            WebImage(url = if (movie.backdrop.isNotEmpty()) movie.backdrop else movie.poster, modifier = Modifier.fillMaxSize())
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0x33000000), BG))))
+            IconButton(onClick = onBack, modifier = Modifier.padding(4.dp)) {
+                Icon(Icons.Filled.ArrowBack, contentDescription = "رجوع", tint = Color.White)
+            }
+            IconButton(onClick = onToggleFavorite, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)) {
+                Icon(
+                    if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = "مفضلة",
+                    tint = if (isFavorite) ACCENT else Color.White
                 )
             }
         }
+        Column(Modifier.padding(20.dp)) {
+            Text(movie.displayTitle, color = TEXT, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            val meta = ArrayList<String>()
+            if (movie.year.isNotEmpty()) meta.add(movie.year)
+            meta.add(if (movie.isSeries) "مسلسل" else "فيلم")
+            if (movie.rating.isNotEmpty()) meta.add("★ " + movie.rating)
+            Text(meta.joinToString("  •  "), color = GOLD, fontSize = 14.sp)
+            if (movie.genres.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text(movie.genres, color = SUB, fontSize = 13.sp)
+            }
+            if (movie.cast.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Text("بطولة: " + movie.cast, color = SUB, fontSize = 13.sp)
+            }
+            if (movie.synopsis.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Text(movie.synopsis, color = Color(0xFFC9C4E0), fontSize = 14.sp, lineHeight = 22.sp)
+            }
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = onPlay,
+                enabled = movie.streamUrl.isNotEmpty(),
+                colors = goldButtonColors(),
+                modifier = Modifier.fillMaxWidth().height(54.dp)
+            ) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text(if (movie.streamUrl.isEmpty()) "غير متوفر حالياً" else "شاهد الآن", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+// ==================== شاشة المشغل ====================
+@Composable
+fun PlayerScreen(movie: MovieData, onBack: () -> Unit) {
+    val ctx = LocalContext.current
+    var season by remember { mutableStateOf(1) }
+    var episode by remember { mutableStateOf(1) }
+    var seasons by remember { mutableStateOf<Map<Int, List<Int>>?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var fullscreen by remember { mutableStateOf(false) }
+    var pickDialog by remember { mutableStateOf("") }
+
+    BackHandler(enabled = fullscreen) { fullscreen = false }
+
+    val baseStream = if (movie.isSeries) movie.streamUrl.substringBefore("&season=").substringBefore("?season=") else movie.streamUrl
+    val currentUrl = if (movie.isSeries) baseStream + "&season=" + season + "&episode=" + episode else movie.streamUrl
+
+    val activity = ctx as? Activity
+    DisposableEffect(fullscreen) {
+        val w = activity?.window
+        if (w != null) {
+            val controller = WindowCompat.getInsetsController(w, w.decorView)
+            if (fullscreen) {
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+                controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                controller.show(WindowInsetsCompat.Type.systemBars())
+            }
+        }
+        onDispose { }
+    }
+
+    val webView = remember {
+        val wv = WebView(ctx)
+        wv.settings.javaScriptEnabled = true
+        wv.settings.domStorageEnabled = true
+        wv.settings.mediaPlaybackRequiresUserGesture = false
+        wv.settings.loadWithOverviewMode = true
+        wv.settings.useWideViewPort = true
+        wv.settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        wv.settings.setSupportMultipleWindows(true)
+        wv.settings.javaScriptCanOpenWindowsAutomatically = false
+        var ua = wv.settings.userAgentString
+        ua = ua.replace("; wv", "").replace("wv,", "")
+        wv.settings.userAgentString = ua
+        wv.setBackgroundColor(0xFF000000.toInt())
+        wv.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val u = request?.url
+                if (u == null) return false
+                val s = u.toString()
+                return !(s.startsWith("http://") || s.startsWith("https://"))
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                loading = false
+            }
+        }
+        wv.webChromeClient = object : WebChromeClient() {
+            override fun onCreateWindow(view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?): Boolean {
+                return false
+            }
+        }
+        wv
+    }
+
+    LaunchedEffect(currentUrl) {
+        if (currentUrl.isNotEmpty()) {
+            loading = true
+            webView.loadUrl(currentUrl)
+        }
+    }
+
+    if (movie.isSeries) {
+        LaunchedEffect(movie.imdbId) {
+            seasons = apiSeriesEpisodes(movie.imdbId)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { webView.destroy() }
+    }
+
+    if (currentUrl.isEmpty()) {
+        Column(
+            Modifier.fillMaxSize().background(BG),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("ما كو رابط بث متوفر لهذا العنوان حالياً", color = SUB, fontSize = 15.sp, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(16.dp))
+            OutlinedButton(onClick = onBack, colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = GOLD)) {
+                Text("رجوع")
+            }
+        }
+        return
+    }
+
+    Column(Modifier.fillMaxSize().background(Color.Black)) {
+        if (!fullscreen) {
+            Row(
+                Modifier.fillMaxWidth().height(52.dp).background(CARD).padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = "رجوع", tint = TEXT)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(movie.displayTitle, color = TEXT, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (movie.isSeries) {
+                        Text("الموسم " + season + " — الحلقة " + episode, color = SUB, fontSize = 11.sp)
+                    }
+                }
+                TextButton(onClick = { fullscreen = true }) {
+                    Text("ملء الشاشة", color = GOLD, fontSize = 12.sp)
+                }
+            }
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+            if (loading) {
+                CircularProgressIndicator(Modifier.align(Alignment.Center).size(34.dp), color = GOLD, strokeWidth = 3.dp)
+            }
+        }
+        if (!fullscreen) {
+            Column(
+                Modifier.fillMaxWidth().background(CARD).padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (movie.isSeries) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { pickDialog = "season" },
+                            colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = GOLD)
+                        ) {
+                            Text("الموسم " + season, fontSize = 13.sp)
+                        }
+                        OutlinedButton(
+                            onClick = { pickDialog = "episode" },
+                            colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = GOLD)
+                        ) {
+                            Text("الحلقة " + episode, fontSize = 13.sp)
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            loading = true
+                            webView.loadUrl(currentUrl)
+                        },
+                        colors = goldButtonColors(),
+                        modifier = Modifier.weight(1f).height(44.dp)
+                    ) {
+                        Text("سيرفر البث المباشر", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            loading = true
+                            webView.reload()
+                        },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        colors = OutlinedButtonDefaults.outlinedButtonColors(contentColor = GOLD)
+                    ) {
+                        Text("تحديث 🔄", fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+
+    if (pickDialog == "season") {
+        val seasonKeys = seasons?.keys?.sorted() ?: ArrayList<Int>()
+        AlertDialog(
+            onDismissRequest = { pickDialog = "" },
+            title = { Text("اختر الموسم", color = TEXT) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    if (seasonKeys.isEmpty()) {
+                        Text(
+                            if (seasons == null) "جاري التحميل..." else "ما كو بيانات مواسم لهذا المسلسل",
+                            color = SUB,
+                            fontSize = 14.sp
+                        )
+                    }
+                    for (s in seasonKeys) {
+                        Text(
+                            "الموسم " + s,
+                            color = if (s == season) GOLD else TEXT,
+                            fontSize = 15.sp,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                season = s
+                                episode = 1
+                                pickDialog = ""
+                            }.padding(12.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { pickDialog = "" }) { Text("إغلاق", color = GOLD) }
+            },
+            containerColor = CARD
+        )
+    }
+
+    if (pickDialog == "episode") {
+        val eps = seasons?.get(season) ?: (1..24).toList()
+        AlertDialog(
+            onDismissRequest = { pickDialog = "" },
+            title = { Text("اختر الحلقة — الموسم " + season, color = TEXT) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    for (e in eps) {
+                        Text(
+                            "الحلقة " + e,
+                            color = if (e == episode) GOLD else TEXT,
+                            fontSize = 15.sp,
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                episode = e
+                                pickDialog = ""
+                            }.padding(12.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { pickDialog = "" }) { Text("إغلاق", color = GOLD) }
+            },
+            containerColor = CARD
+        )
     }
 }

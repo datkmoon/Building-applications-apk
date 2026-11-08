@@ -19,6 +19,7 @@ data class MovieData(
 )
 
 // القائمة المختارة — نفس كتالوج موقع AIFLIX بالضبط
+// روابط البث تستخدم سيرفر الموقع (SmashyStream) — نفس تجربة الويب
 val CATALOG_JSON = """[
 {"a":"أوبنهايمر","e":"Oppenheimer","t":"m","y":"2023","r":"8.9/10","g":"دراما، تاريخي، سيرة ذاتية","c":"Cillian Murphy، Emily Blunt","i":"tt15398776","p":"https://m.media-amazon.com/images/M/MV5BN2JkMDc5MGQtZjg3YS00NmFiLWIyZmQtZTJmNTM5MjVmYTQ4XkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"بين النجوم","e":"Interstellar","t":"m","y":"2014","r":"8.7/10","g":"خيال علمي، مغامرة، دراما","c":"Matthew McConaughey، Anne Hathaway","i":"tt0816692","p":"https://m.media-amazon.com/images/M/MV5BYzdjMDAxZGItMjI2My00ODA1LTlkNzItOWJjMDU5ZDJlYWY3XkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
@@ -60,15 +61,15 @@ val CATALOG_JSON = """[
 {"a":"بيكي بلايندرز","e":"Peaky Blinders","t":"s","y":"2013","r":"8.8/10","g":"جريمة، دراما","c":"Cillian Murphy، Paul Anderson","i":"tt2442560","p":"https://m.media-amazon.com/images/M/MV5BOGM0NGY3ZmItOGE2ZC00OWIxLTk0N2EtZWY4Yzg3ZDlhNGI3XkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"ذا لاست أوف أس","e":"The Last of Us","t":"s","y":"2023","r":"8.7/10","g":"أكشن، مغامرة، دراما، رعب","c":"Bella Ramsey، Pedro Pascal","i":"tt3581920","p":"https://m.media-amazon.com/images/M/MV5BYWI3ODJlMzktY2U5NC00ZjdlLWE1MGItNWQxZDk3NWNjN2RhXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"شوجون","e":"Shōgun","t":"s","y":"2024","r":"8.7/10","g":"مغامرة، دراما، تاريخي","c":"Cosmo Jarvis، Hiroyuki Sanada","i":"tt2788316","p":"https://m.media-amazon.com/images/M/MV5BZmJkMDRjYzEtMWI3Ny00OWE3LWJlNTItMGQ1MTQzMzc3NDY5XkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
-{"a":"فول أوت","e":"Fallout","t":"s","y":"2024","r":"8.4/10","g":"أكشن، مغامرة، دراما، خيال علمي","c":"Ella Purnell، Aaron Moten","i":"tt12637874","p":"https://m.media-amazon.com/images/M/MV5BYzE1MTZmY2ItMTgxNi00OGU5LTk4NTItMmY2ODFhYzhjZjRkXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
+{"a":"فول أوت","e":"Fallout","t":"s","y":"2024","r":"8.4/10","g":"أكشن، مغادمة، دراما، خيال علمي","c":"Ella Purnell، Aaron Moten","i":"tt12637874","p":"https://m.media-amazon.com/images/M/MV5BYzE1MTZmY2ItMTgxNi00OGU5LTk4NTItMmY2ODFhYzhjZjRkXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"انفصال (سيفرانس)","e":"Severance","t":"s","y":"2022","r":"8.7/10","g":"دراما، غموض، خيال علمي، إثارة","c":"Adam Scott، Britt Lower","i":"tt11280740","p":"https://m.media-amazon.com/images/M/MV5BZDI5YzJhODQtMzQyNy00YWNmLWIxMjUtNDBjNjA5YWRjMzExXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"لعبة الحبار","e":"Squid Game","t":"s","y":"2021","r":"8.0/10","g":"أكشن، دراما، غموض، إثارة","c":"Lee Jung-jae، Wi Ha-joon","i":"tt10919420","p":"https://m.media-amazon.com/images/M/MV5BMDcxYjg1OTctYmUxZi00ZjhjLWIwNTMtNmI2M2Y4OTU1YWU2XkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"البطريق","e":"The Penguin","t":"s","y":"2024","r":"8.8/10","g":"جريمة، دراما","c":"Colin Farrell، Cristin Milioti","i":"tt15435876","p":"https://m.media-amazon.com/images/M/MV5BYmU3MzYzOWEtOTdkZi00YzA1LTliMzQtNDdiZDBjY2FiNmFlXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
-{"a":"الخلافة (سكسيشن)","e":"Succession","t":"s","y":"2018","r":"8.9/10","g":"دراما","c":"Nicholas Braun، Brian Cox","i":"tt7660850","p":"https://m.media-amazon.com/images/M/MV5BYTY4YTVkY2QtMjRmOS00YzliLWIxOWQtMTdkOTVkN2UzODNmXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
+{"a":"الخلاصة (سكسيشن)","e":"Succession","t":"s","y":"2018","r":"8.9/10","g":"دراما","c":"Nicholas Braun، Brian Cox","i":"tt7660850","p":"https://m.media-amazon.com/images/M/MV5BYTY4YTVkY2QtMjRmOS00YzliLWIxOWQtMTdkOTVkN2UzODNmXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"آل سوبرانو","e":"The Sopranos","t":"s","y":"1999","r":"9.2/10","g":"جريمة، دراما","c":"James Gandolfini، Lorraine Bracco","i":"tt0141842","p":"https://m.media-amazon.com/images/M/MV5BZjYwNWQwOTMtMzYwOS00NTcxLWFhNTYtNGQ4YjdmYTcyNDFkXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"ديكستر","e":"Dexter","t":"s","y":"2006","r":"8.7/10","g":"جريمة، دراما، غموض","c":"Michael C. Hall، Jennifer Carpenter","i":"tt0773262","p":"https://m.media-amazon.com/images/M/MV5BNTE5ZGI2N2UtYmFiMi00ZGIxLWI1ZTMtYWJkZDYxNDZiOTQwXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"شارلوك","e":"Sherlock","t":"s","y":"2010","r":"9.1/10","g":"جريمة، دراما، غموض","c":"Benedict Cumberbatch، Martin Freeman","i":"tt1475582","p":"https://m.media-amazon.com/images/M/MV5BMjRhZDdjMDYtMTg5Yy00NGI4LWI3ZDgtYjNkNDc4MzJkNDRjXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
-{"a":"ريك ومورتي","e":"Rick and Morty","t":"s","y":"2013","r":"9.1/10","g":"أنيميشن، مغامرة، كوميديا، خيال علمي","c":"Chris Parnell، Spencer Grammer","i":"tt2861424","p":"https://m.media-amazon.com/images/M/MV5BZGQyZjk2MzMtMTcyNC00NGU3LTlmNjItNDExMWM4ZDFhYmQ2XkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
+{"a":"ريك ومورتي","e":"Rick and Morty","t":"s","y":"2013","r":"9.1/10","g":"أنيميشن، مغامرة، كوميديا، خيال علمي","c":"Chris Parnell، Spencer Gramser","i":"tt2861424","p":"https://m.media-amazon.com/images/M/MV5BZGQyZjk2MzMtMTcyNC00NGU3LTlmNjItNDExMWM4ZDFhYmQ2XkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"},
 {"a":"أركين","e":"Arcane","t":"s","y":"2021","r":"9.0/10","g":"أنيميشن، أكشن، مغامرة، فانتازيا","c":"Kevin Alejandro، Hailee Steinfeld","i":"tt11126994","p":"https://m.media-amazon.com/images/M/MV5BYjA2NzhlMDItNWRmZC00MzRjLWE3ZjAtZjBlZDAwOWY2ODdjXkEyXkFqcGc@._V1_FMjpg_UX600_.jpg"}
 ]"""
 
@@ -83,9 +84,9 @@ fun catalogMovies(): List<MovieData> {
         val poster = o.getString("p")
         val backdrop = poster.replace("_FMjpg_UX600_", "")
         val stream = if (isSeries) {
-            "https://player.imdb.su/embed/tv/" + imdb + "/1/1"
+            "https://embed.smashystream.com/playere.php?imdb=" + imdb + "&season=1&episode=1"
         } else {
-            "https://player.imdb.su/embed/movie/" + imdb
+            "https://embed.smashystream.com/playere.php?imdb=" + imdb
         }
         list.add(
             MovieData(
